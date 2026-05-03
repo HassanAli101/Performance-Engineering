@@ -187,6 +187,33 @@ Some possible reasons:
 * Go uses **preemptive scheduling**, meaning goroutines can be interrupted and rescheduled by the runtime automatically. This leads to better CPU utilization under heavy concurrent workloads compared to cooperative async models.  
   - Go scheduler deep dive: https://go.dev/blog/scheduler
 
+--- 
+
+Some fundamental language/runtime differences explain the large performance gap observed:
+
+
+* Python is an **interpreted language**, meaning code is executed by an interpreter at runtime rather than being compiled directly into machine code.  
+  - Python first compiles code to **bytecode**, which is then executed by the Python Virtual Machine (PVM)  
+  - This introduces overhead on every operation (function calls, loops, object handling)  
+  - Dynamic typing adds additional runtime cost (type checking, object resolution)
+
+  👉 Result: Slower execution, especially in CPU-bound or high-throughput scenarios  
+
+  - Official docs (execution model): https://docs.python.org/3/reference/executionmodel.html  
+  - Python interpreter internals: https://docs.python.org/3/tutorial/interpreter.html  
+
+
+* Go is a **compiled language**, meaning source code is compiled directly into **native machine code** before execution.  
+  - The compiled binary runs directly on the CPU  
+  - No interpreter layer at runtime  
+  - Static typing allows many optimizations during compilation  
+  - Efficient memory layout and reduced runtime overhead  
+
+  👉 Result: Faster execution, lower latency, and better CPU utilization  
+
+  - Go build/compile model: https://go.dev/doc/tutorial/compile-install  
+  - Effective Go (performance-related concepts): https://go.dev/doc/effective_go  
+
 ---
 
 > **Conclusion:**  
