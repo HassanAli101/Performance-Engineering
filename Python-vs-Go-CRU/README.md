@@ -61,9 +61,9 @@ SELECT COUNT(*) FROM users;
 
 A simple FastAPI application with:
 
-* A hello world endpoint
-* A db read endpoint
-* A db write endpoint
+- A hello world endpoint
+- A db read endpoint
+- A db write endpoint
 
 This framework is chosen because from what I have seen, python is argued to have better dev experience and faster development, over its performance tradeoffs. A majority of companies use python along with FastAPI, so this is done to keep my performance comparison consistent with what **"is" (python + FastAPI)** vs what **"could be" (go + native packages).**
 
@@ -75,9 +75,9 @@ A simple go application using native `net/http` package (to avoid framework over
 
 It also has:
 
-* A hello world endpoint
-* A db read endpoint
-* A db write endpoint
+- A hello world endpoint
+- A db read endpoint
+- A db write endpoint
 
 ---
 
@@ -97,10 +97,10 @@ wrk -t2 -c20 -d30s http://localhost:8000/hello
 
 ### Hello World Endpoint
 
-#### Python Averages (FastAPI, 8 workers) 
+#### Python Averages (FastAPI, 8 workers)
 
-* ~205 requests/sec
-* ~48 ms latency
+- ~205 requests/sec
+- ~48 ms latency
 
 Cpu Utilization:
 ![Python_CPU_Util](./results/Default-Hello-World/Python_CPU_Util.png)
@@ -108,11 +108,10 @@ Cpu Utilization:
 Benchmark Results:
 ![Python_Results](./results/Default-Hello-World/Python_Results.png)
 
-
 #### Go Averages (net/http, GOMAXPROCS=8)
 
-* ~13.5k requests/sec
-* ~0.7 ms latency
+- ~13.5k requests/sec
+- ~0.7 ms latency
 
 Cpu Utilization:
 ![Go_CPU_Util](./results/Default-Hello-World/Go_CPU_Util.png)
@@ -120,99 +119,122 @@ Cpu Utilization:
 Benchmark Results:
 ![Go_Results](./results/Default-Hello-World/Go_Results.png)
 
+### Random userID Read Endpoint:
+
+#### Python Averages (FastAPI, asyncpg)
+
+- ~93 requests/sec
+- ~107 ms latency
+
+Benchmark Results:
+![Python_Results](./results/DB-Read/Read_Python.png)
+
+#### Go Averages (native, pgxpool)
+
+- ~2.07k requests/sec
+- ~5 ms latency
+
+Benchmark Results:
+![Go_Results](./results/DB-Read/Read_Go.png)
+
 ---
-
-
 
 ## Observations (initial)
 
-* Go massively outperforms Python in raw throughput (~65x in this setup)
-* Go fully utilizes CPU cores, while Python appears to be limited
-* Latency in Python is significantly higher even for trivial workloads
+- Go massively outperforms Python in raw throughput (~65x in this setup)
+- Go fully utilizes CPU cores, while Python appears to be limited
+- Latency in Python is significantly higher even for trivial workloads
 
 ---
+
 ## Hypothesis / Why this happens
 
 Some possible reasons:
 
-* Python is limited by the **Global Interpreter Lock (GIL)**, meaning only one thread executes Python bytecode at a time within a process. This simplifies memory management but restricts true parallel CPU execution in multi-threaded programs.  
-  - Official Python docs on GIL: https://docs.python.org/3/c-api/init.html#thread-state-and-the-global-interpreter-lock  
+- Python is limited by the **Global Interpreter Lock (GIL)**, meaning only one thread executes Python bytecode at a time within a process. This simplifies memory management but restricts true parallel CPU execution in multi-threaded programs.
+  - Official Python docs on GIL: https://docs.python.org/3/c-api/init.html#thread-state-and-the-global-interpreter-lock
   - Good explanation (why it exists): https://www.geeksforgeeks.org/python/what-is-the-python-global-interpreter-lock-gil/
 
 ---
 
-* Go uses **goroutines** and a runtime scheduler that maps them onto OS threads, allowing it to utilize multiple CPU cores in parallel by default. This enables true concurrent execution for CPU-bound and IO-bound workloads.  
-  - Go scheduler + goroutines: https://go.dev/doc/effective_go#goroutines  
+- Go uses **goroutines** and a runtime scheduler that maps them onto OS threads, allowing it to utilize multiple CPU cores in parallel by default. This enables true concurrent execution for CPU-bound and IO-bound workloads.
+  - Go scheduler + goroutines: https://go.dev/doc/effective_go#goroutines
   - GOMAXPROCS (controls parallelism): https://pkg.go.dev/runtime#GOMAXPROCS
 
 ---
 
-* FastAPI runs on top of an **ASGI server (uvicorn)**, which introduces additional abstraction layers such as:
-  - ASGI interface handling  
-  - event loop scheduling  
-  - request parsing and routing  
+- FastAPI runs on top of an **ASGI server (uvicorn)**, which introduces additional abstraction layers such as:
 
-  These layers improve flexibility and developer experience but add runtime overhead compared to lower-level implementations.  
-  - FastAPI async docs: https://fastapi.tiangolo.com/async/  
+  - ASGI interface handling
+  - event loop scheduling
+  - request parsing and routing
+
+  These layers improve flexibility and developer experience but add runtime overhead compared to lower-level implementations.
+
+  - FastAPI async docs: https://fastapi.tiangolo.com/async/
   - Uvicorn documentation: https://www.uvicorn.org/
 
 ---
 
-* Go’s `net/http` package is **closer to the metal and part of the standard library**, meaning:
-  - fewer abstraction layers  
-  - highly optimized request handling  
-  - tight integration with Go’s runtime and scheduler  
+- Go’s `net/http` package is **closer to the metal and part of the standard library**, meaning:
 
-  This results in lower latency and higher throughput under load.  
+  - fewer abstraction layers
+  - highly optimized request handling
+  - tight integration with Go’s runtime and scheduler
+
+  This results in lower latency and higher throughput under load.
+
   - Go net/http docs: https://pkg.go.dev/net/http
 
 ---
 
-* Serialization and request handling in Go is faster due to:
-  - **static typing** (no runtime type resolution)  
-  - **compiled binaries** (no interpreter overhead)  
-  - more efficient memory layout and allocation patterns  
+- Serialization and request handling in Go is faster due to:
 
-  In contrast, Python performs more work at runtime due to its dynamic nature.  
-  - Go JSON package: https://pkg.go.dev/encoding/json  
+  - **static typing** (no runtime type resolution)
+  - **compiled binaries** (no interpreter overhead)
+  - more efficient memory layout and allocation patterns
+
+  In contrast, Python performs more work at runtime due to its dynamic nature.
+
+  - Go JSON package: https://pkg.go.dev/encoding/json
   - Python JSON docs: https://docs.python.org/3/library/json.html
 
 ---
 
-* Python async (used by FastAPI) is based on an **event loop (cooperative multitasking)**, meaning tasks yield control manually (`await`). While efficient for IO-bound workloads, it does not provide parallel CPU execution within a single process.  
+- Python async (used by FastAPI) is based on an **event loop (cooperative multitasking)**, meaning tasks yield control manually (`await`). While efficient for IO-bound workloads, it does not provide parallel CPU execution within a single process.
   - Python asyncio docs: https://docs.python.org/3/library/asyncio.html
 
 ---
 
-* Go uses **preemptive scheduling**, meaning goroutines can be interrupted and rescheduled by the runtime automatically. This leads to better CPU utilization under heavy concurrent workloads compared to cooperative async models.  
+- Go uses **preemptive scheduling**, meaning goroutines can be interrupted and rescheduled by the runtime automatically. This leads to better CPU utilization under heavy concurrent workloads compared to cooperative async models.
   - Go scheduler deep dive: https://go.dev/blog/scheduler
 
---- 
+---
 
 Some fundamental language/runtime differences explain the large performance gap observed:
 
+- Python is an **interpreted language**, meaning code is executed by an interpreter at runtime rather than being compiled directly into machine code.
 
-* Python is an **interpreted language**, meaning code is executed by an interpreter at runtime rather than being compiled directly into machine code.  
-  - Python first compiles code to **bytecode**, which is then executed by the Python Virtual Machine (PVM)  
-  - This introduces overhead on every operation (function calls, loops, object handling)  
+  - Python first compiles code to **bytecode**, which is then executed by the Python Virtual Machine (PVM)
+  - This introduces overhead on every operation (function calls, loops, object handling)
   - Dynamic typing adds additional runtime cost (type checking, object resolution)
 
-  👉 Result: Slower execution, especially in CPU-bound or high-throughput scenarios  
+  👉 Result: Slower execution, especially in CPU-bound or high-throughput scenarios
 
-  - Official docs (execution model): https://docs.python.org/3/reference/executionmodel.html  
-  - Python interpreter internals: https://docs.python.org/3/tutorial/interpreter.html  
+  - Official docs (execution model): https://docs.python.org/3/reference/executionmodel.html
+  - Python interpreter internals: https://docs.python.org/3/tutorial/interpreter.html
 
+- Go is a **compiled language**, meaning source code is compiled directly into **native machine code** before execution.
 
-* Go is a **compiled language**, meaning source code is compiled directly into **native machine code** before execution.  
-  - The compiled binary runs directly on the CPU  
-  - No interpreter layer at runtime  
-  - Static typing allows many optimizations during compilation  
-  - Efficient memory layout and reduced runtime overhead  
+  - The compiled binary runs directly on the CPU
+  - No interpreter layer at runtime
+  - Static typing allows many optimizations during compilation
+  - Efficient memory layout and reduced runtime overhead
 
-  👉 Result: Faster execution, lower latency, and better CPU utilization  
+  👉 Result: Faster execution, lower latency, and better CPU utilization
 
-  - Go build/compile model: https://go.dev/doc/tutorial/compile-install  
-  - Effective Go (performance-related concepts): https://go.dev/doc/effective_go  
+  - Go build/compile model: https://go.dev/doc/tutorial/compile-install
+  - Effective Go (performance-related concepts): https://go.dev/doc/effective_go
 
 ---
 
