@@ -44,3 +44,10 @@ class AsyncDatabaseOperations:
             if not row:
                 raise UserNotFound("User not found with given ID")
             return {"id": row["id"], "name": row["name"], "email": row["email"]}
+    
+    async def update_by_id(self, id: int):
+        async with self.pool.acquire() as conn:
+            status = await conn.execute("UPDATE users SET email = $1 WHERE id = $2", f"python_user_{id}@test.com", id)
+            if status == "UPDATE 0":
+                return {"error": "User not found"}
+            return {"message": f"Update successful for user id: {id}"}

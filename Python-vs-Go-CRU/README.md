@@ -112,6 +112,7 @@ Benchmark Results:
 
 - ~13.5k requests/sec
 - ~0.7 ms latency
+- 97% CPU utilization/core
 
 Cpu Utilization:
 ![Go_CPU_Util](./results/Default-Hello-World/Go_CPU_Util.png)
@@ -133,9 +134,29 @@ Benchmark Results:
 
 - ~2.07k requests/sec
 - ~5 ms latency
+- 97% CPU utilization/core
 
 Benchmark Results:
 ![Go_Results](./results/DB-Read/Read_Go.png)
+
+### Random userID Email Update Endpoint:
+
+#### Python Averages (FastAPI, asyncpg)
+
+- ~93 requests/sec
+- ~108 ms latency
+
+Benchmark Results:
+![Python_Results](./results/DB_Update/Update_Python.png)
+
+#### Go Averages (native, pgxpool)
+
+- ~1.1k requests/sec
+- ~9 ms latency
+- 80% CPU utilization/core
+
+Benchmark Results:
+![Go_Results](./results/DB_Update/Update_Go.png)
 
 ---
 
@@ -144,6 +165,8 @@ Benchmark Results:
 - Go massively outperforms Python in raw throughput (~65x in this setup)
 - Go fully utilizes CPU cores, while Python appears to be limited
 - Latency in Python is significantly higher even for trivial workloads
+- Database operations do not become the bottleneck for python in this setup
+- Database Update became a bottleneck for golang application
 
 ---
 
@@ -235,6 +258,21 @@ Some fundamental language/runtime differences explain the large performance gap 
 
   - Go build/compile model: https://go.dev/doc/tutorial/compile-install
   - Effective Go (performance-related concepts): https://go.dev/doc/effective_go
+
+- The relatively similar performance between random reads and random updates suggests that the database itself is likely **not the bottleneck yet**. Simple primary-key lookups and single-row updates in :contentReference[oaicite:0]{index=0} are highly optimized and execute very quickly, especially on a small dataset. As a result, a larger portion of the request time is likely spent in the Python application layer itself, including:
+  - request parsing
+  - JSON serialization/deserialization
+  - async scheduling and event loop overhead
+  - database connection acquisition
+  - framework abstraction costs
+
+  This means the overall latency is dominated more by the web application runtime than by actual query execution time.
+
+  Documentation:
+  - PostgreSQL EXPLAIN ANALYZE: https://www.postgresql.org/docs/current/sql-explain.html  
+  - FastAPI async internals: https://fastapi.tiangolo.com/async/  
+  - Python asyncio: https://docs.python.org/3/library/asyncio.html  
+  - asyncpg docs: https://magicstack.github.io/asyncpg/current/  
 
 ---
 

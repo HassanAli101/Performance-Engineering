@@ -26,3 +26,13 @@ async def get_user():
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/updateRandomUser")
+async def get_user():
+    try:
+        user_id = random.randint(1,1000)
+        return await async_ops.update_by_id(user_id)
+    except UserNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
